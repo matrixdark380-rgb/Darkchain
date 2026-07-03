@@ -1,12 +1,12 @@
 import asyncio
 
-# === Render Python 3.14 Event Loop Fix (Must be at the absolute top) ===
+# === Render & Latest Python (3.12/3.14+) Event Loop Fix ===
 try:
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
 except RuntimeError:
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-# =======================================================================
+# ==========================================================
 
 import os
 import re
@@ -103,23 +103,51 @@ async def delete_after(msg, delay: int):
 def build_token_message(token: str, rtime: str) -> str:
     return f"<b>┏━━━「 ᴛᴏᴋᴇɴ 」━━┓\n┃🧪 ʏᴏᴜʀ ᴘʀɪᴠᴀᴛᴇ ᴛᴏᴋᴇɴ \n┗──────────╼\n┃ ʀᴇsᴇᴛ ᴛɪᴍᴇ: <code>{rtime}</code>\n┗──────────╼\n┃ 🔗 ᴛᴏᴋᴇɴ \n┃<code>{token}</code>\n┗━━━━━━━━━━━┛</b>"
 
-def get_profile_text(user_data):
+# === UPDATED DYNAMIC PROFILE FUNCTION ===
+# ডেটাবেসে যে ডেটা আছে শুধুমাত্র সেটাই শো করবে (কোনো N/A বা ফাঁকা লিংক আসবে না)
+def get_profile_text(user_data: dict) -> str:
+    name = fancy_text(user_data.get('name', 'Unknown'))
+    uid = user_data.get('uid', 'N/A')
+    
     profile_msg = (
         f"<b>┏━━「 📊 {fancy_text('PROFILE')} 」━━┓\n"
-        f"┃ 👤 {fancy_text('NAME')}: {fancy_text(user_data.get('name', 'N/A'))}\n"
-        f"┃ 🆔 {fancy_text('UID')}: <code>{user_data.get('uid', 'N/A')}</code>\n"
+        f"┃ 👤 {fancy_text('NAME')}: {name}\n"
+        f"┃ 🆔 {fancy_text('UID')}: <code>{uid}</code>\n"
         f"┣━━━━━━━━━━\n"
-        f"┃ 🚻 {fancy_text('GENDER')}: {fancy_text(user_data.get('gender', 'N/A'))}\n"
-        f"┃ 🎖️ {fancy_text('POST')}: {fancy_text(user_data.get('post', 'N/A'))}\n"
-        f"┃ 🎮 {fancy_text('HOBBY')}: {fancy_text(user_data.get('hobby', 'N/A'))}\n"
-        f"┃ 📱 {fancy_text('WP')}: {user_data.get('wp', 'N/A')}\n"
-        f"┃ 🔗 {fancy_text('LOYAL')}: <a href='{user_data.get('loyal', '')}'>Link</a>\n"
     )
-    known_keys = {'_id', 'uid', 'token', 'reset_time', 'image', 'name', 'gender', 'post', 'hobby', 'date', 'loyal', 'wp'}
+    
+    if user_data.get('gender'):
+        profile_msg += f"┃ 🚻 {fancy_text('GENDER')}: {fancy_text(str(user_data['gender']))}\n"
+    if user_data.get('post'):
+        profile_msg += f"┃ 🎖️ {fancy_text('POST')}: {fancy_text(str(user_data['post']))}\n"
+    if user_data.get('hobby'):
+        profile_msg += f"┃ 🎮 {fancy_text('HOBBY')}: {fancy_text(str(user_data['hobby']))}\n"
+    if user_data.get('city'):
+        profile_msg += f"┃ 🏙️ {fancy_text('CITY')}: {fancy_text(str(user_data['city']))}\n"
+    if user_data.get('date'):
+        profile_msg += f"┃ 📅 {fancy_text('DATE')}: {fancy_text(str(user_data['date']))}\n"
+    if user_data.get('wp'):
+        profile_msg += f"┃ 📱 {fancy_text('WP')}: <code>{user_data['wp']}</code>\n"
+    
+    loyal_val = user_data.get('loyal')
+    if loyal_val and str(loyal_val).strip():
+        loyal_str = str(loyal_val).strip()
+        if loyal_str.startswith("http://") or loyal_str.startswith("https://"):
+            profile_msg += f"┃ 🔗 {fancy_text('LOYAL')}: <a href='{loyal_str}'>Link</a>\n"
+        else:
+            profile_msg += f"┃ 🔗 {fancy_text('LOYAL')}: {fancy_text(loyal_str)}\n"
+    
+    known_keys = {
+        '_id', 'uid', 'token', 'reset_time', 'image', 'name', 
+        'gender', 'post', 'hobby', 'date', 'loyal', 'wp', 'city',
+        'https', 'http'
+    }
+    
     for k, v in user_data.items():
-        if k not in known_keys and k not in ['https', 'http']:
+        if k.lower() not in known_keys and v is not None and str(v).strip() != "":
             emoji = random.choice(RANDOM_EMOJIS)
-            profile_msg += f"┃ {emoji} {fancy_text(k.upper())}: {fancy_text(v)}\n"
+            profile_msg += f"┃ {emoji} {fancy_text(str(k).upper())}: {fancy_text(str(v))}\n"
+            
     profile_msg += f"┗━━━━━━━━━━┛</b>"
     return profile_msg
 
@@ -174,7 +202,7 @@ async def ping_self():
             async with aiohttp.ClientSession() as session:
                 async with session.get(URL) as response:
                     pass
-        except Exception as e: 
+        except Exception: 
             pass
         await asyncio.sleep(300)
 
@@ -196,7 +224,7 @@ async def start_cmd(client, message):
         await send_token(client, message)
     else:
         img_url = "https://graph.org/file/286753969727cb5f0d33f-e24fd829b618d7d740.jpg"
-        caption_text = f"<b>{fancy_text('Welcome to Dark-Chain Bot! Use to /xmenu see commands.')}</b>"
+        caption_text = f"<b>{fancy_text('Welcome to Dark-Chain Bot! Use /xmenu to see commands.')}</b>"
         
         markup = InlineKeyboardMarkup([
             [
@@ -360,7 +388,7 @@ async def remove_user(client, message):
         return await message.reply_text(f"<b>{fancy_text('User not found in database.')}</b>")
     
     await users_col.delete_one({"_id": user["_id"]})
-    await message.reply_text(f"<b>{fancy_text(f'User {user.get('name', query)} successfully removed from database!')}</b>")
+    await message.reply_text(f"<b>{fancy_text(f'User {user.get("name", query)} successfully removed from database!')}</b>")
 
 @app.on_message(filters.command("search"))
 async def search_users(client, message):
@@ -448,4 +476,237 @@ async def detect_token(client, message):
         asyncio.create_task(delete_after(profile_sent, 60))
         
         new_token = generate_token()
-        new_t
+        new_time = get_ist_time()
+        await users_col.update_one({"uid": user_data['uid']}, {"$set": {"token": new_token, "reset_time": new_time}})
+        
+        try:
+            msg_text = build_token_message(new_token, new_time)
+            dm_text = f"<b>{fancy_text('Your token was used in a group!')}</b>\n{fancy_text('Token has been automatically reset and refreshed.')}\n\n{msg_text}"
+            await send_token_with_copy_button(user_data['uid'], dm_text, new_token, user_data['uid'])
+        except: pass
+    else:
+        profile_msg = get_profile_text(user_data)
+
+        if user_data.get('image'):
+            await message.reply_photo(photo=user_data['image'], caption=profile_msg)
+        else:
+            await message.reply_text(profile_msg)
+
+@app.on_message(filters.command("token") & ~filters.private)
+async def token_in_group(client, message):
+    btn = InlineKeyboardMarkup([[InlineKeyboardButton("🤖 ɢᴏ ᴛᴏ ʙᴏᴛ ᴅᴍ", url=f"https://t.me/{BOT_USERNAME}?start=token")]])
+    msg = f"<b>{fancy_text('Token command is private for security!')}</b>\n\n{fancy_text('Click button to open DM and use /token')}"
+    await message.reply_text(msg, reply_markup=btn)
+
+@app.on_message(filters.command("profile"))
+async def show_profile(client, message):
+    target_id = await get_target_id(message) or message.from_user.id
+    user_data = await users_col.find_one({"uid": target_id})
+    if not user_data:
+        return await message.reply_text(f"<b>{fancy_text('User not found in database.')}</b>")
+    
+    profile_msg = get_profile_text(user_data)
+
+    if user_data.get('image'):
+        await message.reply_photo(photo=user_data['image'], caption=profile_msg)
+    else:
+        await message.reply_text(profile_msg)
+
+@app.on_message(filters.command("post"))
+async def add_special_post(client, message):
+    if message.from_user.id not in OWNER_ID:
+        return await message.reply_text(f"<b>{fancy_text('Only Owner can use this.')}</b>")
+    if len(message.command) < 2:
+        return await message.reply_text(f"<b>{fancy_text('Usage: /post ruler')}</b>")
+    post_name = message.command[1].strip().lower()
+    await posts_col.update_one({"type": "special"}, {"$addToSet": {"posts": post_name}}, upsert=True)
+    await message.reply_text(f"<b>{fancy_text(f'Special post {post_name} added!')}</b>")
+
+@app.on_message(filters.command("posts"))
+async def list_special_posts(client, message):
+    if message.from_user.id not in OWNER_ID:
+        return await message.reply_text(f"<b>{fancy_text('Only Owner can use this.')}</b>")
+    doc = await posts_col.find_one({"type": "special"})
+    posts = doc.get("posts", []) if doc else []
+    if not posts:
+        return await message.reply_text(f"<b>{fancy_text('No special posts yet.')}</b>")
+    txt = f"<b>┏━━「 {fancy_text('SPECIAL POSTS')} 」━━┓\n"
+    for p in posts:
+        txt += f"┃ • {fancy_text(p)}\n"
+    txt += "┗━━━━━━━━━━┛</b>"
+    await message.reply_text(txt)
+
+@app.on_message(filters.command("suspend"))
+async def suspend_user(client, message):
+    if not await is_sudo(message.from_user.id): return
+    
+    parts = message.text.split()
+    if len(parts) < 3:
+        return await message.reply_text(f"<b>{fancy_text('Usage: /suspend @username B/S/X')}</b>")
+    
+    target_id = await get_target_id(message)
+    category = parts[-1].upper()
+    
+    if not target_id: return await message.reply_text(f"<b>{fancy_text('User not found.')}</b>")
+    
+    user = await users_col.find_one({"uid": target_id})
+    if not user: return await message.reply_text(f"<b>{fancy_text('User not in database.')}</b>")
+
+    await suspend_col.update_one({"uid": target_id}, {"$set": {"uid": target_id, "data": user, "category": category}}, upsert=True)
+    
+    doc = await posts_col.find_one({"type": "special"})
+    special = doc.get("posts", ["ruler", "leader", "hacker"]) if doc else ["ruler", "leader", "hacker"]
+    regex_str = "|".join([re.escape(p) for p in special])
+    notify_users = await users_col.find({"post": {"$regex": regex_str, "$options": "i"}}).to_list(length=None)
+    
+    msg = ""
+    if category == "B": msg = "Ey user ke ban kora holo Ey user Dark gang korte parbe na"
+    elif category == "S": msg = "Ey user ke suspend kora holo ey user ke dark er under a kono groupe rakha hobe na"
+    elif category == "X": msg = "Ey user ke permanent suspend kora holo future a kokhono dark korte parbe na"
+    
+    for u in notify_users:
+        try:
+            await app.send_message(u['uid'], f"<b>{fancy_text('SUSPEND NOTICE')}</b>\n{msg}\nUser: {user.get('name')}")
+        except: pass
+        
+    await message.reply_text(f"<b>{fancy_text(f'User suspended with category {category}')}</b>")
+
+@app.on_message(filters.command("edit"))
+async def edit_user(client, message):
+    if not await is_sudo(message.from_user.id):
+        return await message.reply_text(f"<b>{fancy_text('Only Owner and Sudo can edit.')}</b>")
+    
+    target_id = await get_target_id(message)
+    if not target_id:
+        usage = f"<b>{fancy_text('Usage of /edit command:')}</b>\n\n"
+        usage += "<code>/edit @user or reply\nname: NewName\ncity: Kolkata\nAnyExtra: value</code>"
+        return await message.reply_text(usage)
+    
+    user = await users_col.find_one({"uid": target_id})
+    if not user:
+        return await message.reply_text(f"<b>{fancy_text('User not in database.')}</b>")
+    
+    text = message.text
+    data = {}
+    img_match = re.search(r'\[profile\]\((.*?)\)', text, re.IGNORECASE)
+    if img_match and img_match.group(1).strip():
+        data['image'] = img_match.group(1).strip()
+    
+    remaining = '\n'.join(text.split('\n')[1:])
+    for match in re.finditer(r'(\w+?):\s*(.+?)(?=\n\w+:|$)', remaining, re.DOTALL | re.IGNORECASE):
+        key = match.group(1).strip().lower()
+        val = match.group(2).strip()
+        data[key] = val
+    
+    if data:
+        await users_col.update_one({"uid": target_id}, {"$set": data})
+        await message.reply_text(f"<b>{fancy_text('User data edited successfully! New fields added if any.')}</b>")
+    else:
+        await message.reply_text(f"<b>{fancy_text('No data to edit.')}</b>")
+
+@app.on_message(filters.command("sudo"))
+async def manage_sudo(client, message):
+    if message.from_user.id in OWNER_ID and len(message.command) > 1:
+        target_id = await get_target_id(message)
+        if not target_id:
+            return await message.reply_text(f"<b>{fancy_text('Invalid user.')}</b>")
+        await sudos_col.update_one({"uid": target_id}, {"$set": {"uid": target_id}}, upsert=True)
+        await message.reply_text(f"<b>{fancy_text('Sudo added successfully!')}</b>")
+        return
+    
+    if not await is_sudo(message.from_user.id):
+        return await message.reply_text(f"<b>{fancy_text('Only sudo/owner.')}</b>")
+    
+    all_sudos = await sudos_col.find({}).to_list(length=None)
+    if not all_sudos:
+        return await message.reply_text(f"<b>{fancy_text('No sudos yet.')}</b>")
+    
+    txt = f"<b>┏━━「 {fancy_text('ALL SUDOS')} 」━━┓\n"
+    for s in all_sudos:
+        try:
+            u = await app.get_users(s['uid'])
+            txt += f"┃ 👤 {fancy_text(u.first_name)} <code>{s['uid']}</code>\n"
+        except:
+            txt += f"┃ 👤 Unknown <code>{s['uid']}</code>\n"
+    txt += "┗━━━━━━━━━━┛</b>"
+    await message.reply_text(txt)
+
+@app.on_message(filters.command("rm"))
+async def remove_sudo(client, message):
+    if message.from_user.id not in OWNER_ID:
+        return await message.reply_text(f"<b>{fancy_text('Only Owner can remove sudo.')}</b>")
+    target_id = await get_target_id(message)
+    if not target_id:
+        return await message.reply_text(f"<b>{fancy_text('Usage: /rm @user or id')}</b>")
+    await sudos_col.delete_one({"uid": target_id})
+    await message.reply_text(f"<b>{fancy_text('Sudo removed successfully!')}</b>")
+
+@app.on_message(filters.command("broadcast"))
+async def broadcast(client, message):
+    if not await is_sudo(message.from_user.id): return
+    
+    query = message.text.replace("/broadcast", "").strip()
+    is_pin = "(pin)" in query
+    target_type = "all"
+    if "(group)" in query: target_type = "group"
+    elif "(user)" in query: target_type = "user"
+    
+    query = query.replace("(pin)", "").replace("(group)", "").replace("(user)", "").strip()
+    
+    buttons = []
+    text_content = query
+    btn_matches = re.findall(r'\[(.*?)\]', query)
+    for match in btn_matches:
+        if "|" in match:
+            b_text, b_url = match.split("|", 1)
+            buttons.append([InlineKeyboardButton(b_text.strip(), url=b_url.strip())])
+            text_content = text_content.replace(f"[{match}]", "")
+    
+    markup = InlineKeyboardMarkup(buttons) if buttons else None
+    
+    targets = []
+    if target_type in ["all", "user"]:
+        users = await users_col.find({}).to_list(length=None)
+        targets.extend([u['uid'] for u in users])
+    if target_type in ["all", "group"]:
+        groups = await groups_col.find({}).to_list(length=None)
+        targets.extend([g['chat_id'] for g in groups])
+        
+    success, failed = 0, 0
+    for target in targets:
+        try:
+            if message.reply_to_message:
+                m = await message.reply_to_message.copy(target, reply_markup=markup)
+            else:
+                m = await app.send_message(target, text_content, reply_markup=markup)
+            if is_pin:
+                await m.pin()
+            success += 1
+            await asyncio.sleep(0.1)
+        except Exception:
+            failed += 1
+            
+    res_msg = (
+        f"✅ <b>{fancy_text('ʙʀᴏᴀᴅᴄᴀsᴛ ᴄᴏᴍᴘʟᴇᴛᴇᴅ')}</b>\n"
+        f"━━━━━━━━━━━━━━━━━\n"
+        f"👤 <b>{fancy_text('ᴛᴏᴛᴀʟ ᴛᴀʀɢᴇᴛs')}</b>: {len(targets)}\n"
+        f"📨 <b>{fancy_text('sᴇɴᴛ sᴜᴄss')}</b>: {success}\n"
+        f"❌ <b>{fancy_text('ғᴀɪʟᴇᴅ/ᴇʀʀᴏʀ')}</b>: {failed}\n"
+        f"━━━━━━━━━━━━━━━━━"
+    )
+    await message.reply_text(res_msg)
+
+async def main():
+    await app.start()
+    await web_server()
+    asyncio.create_task(ping_self())
+    print("Bot is running perfectly...")
+    await idle()
+
+if __name__ == "__main__":
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+    loop.run_until_complete(main())
