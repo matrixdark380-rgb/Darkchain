@@ -103,7 +103,7 @@ async def delete_after(msg, delay: int):
 def build_token_message(token: str, rtime: str) -> str:
     return f"<b>┏━━━「 ᴛᴏᴋᴇɴ 」━━┓\n┃🧪 ʏᴏᴜʀ ᴘʀɪᴠᴀᴛᴇ ᴛᴏᴋᴇɴ \n┗──────────╼\n┃ ʀᴇsᴇᴛ ᴛɪᴍᴇ: <code>{rtime}</code>\n┗──────────╼\n┃ 🔗 ᴛᴏᴋᴇɴ \n┃<code>{token}</code>\n┗━━━━━━━━━━━┛</b>"
 
-# === UPDATED DYNAMIC PROFILE FUNCTION ===
+# === DYNAMIC PROFILE FUNCTION ===
 # ডেটাবেসে যে ডেটা আছে শুধুমাত্র সেটাই শো করবে (কোনো N/A বা ফাঁকা লিংক আসবে না)
 def get_profile_text(user_data: dict) -> str:
     name = fancy_text(user_data.get('name', 'Unknown'))
@@ -218,7 +218,7 @@ async def web_server():
     await site.start()
     print(f"Web server started on port {port} for Render.")
 
-@app.on_message(filters.command("start") & filters.private)
+@app.on_message(filters.command("start") & filters.private & filters.incoming & ~filters.bot & ~filters.me)
 async def start_cmd(client, message):
     if len(message.command) > 1 and message.command[1] == "token":
         await send_token(client, message)
@@ -296,7 +296,7 @@ async def bot_added(client, message):
             msg = f"<b>{fancy_text('Thanks for adding me! Please make me an admin using the button below to function properly.')}</b>"
             await message.reply_text(msg, reply_markup=btn)
 
-@app.on_message(filters.command("xmenu"))
+@app.on_message(filters.command("xmenu") & filters.incoming & ~filters.bot & ~filters.me)
 async def xmenu_command(client, message):
     if await is_sudo(message.from_user.id):
         menu = (
@@ -330,7 +330,7 @@ async def xmenu_command(client, message):
         )
     await message.reply_text(menu)
 
-@app.on_message(filters.command("dark"))
+@app.on_message(filters.command("dark") & filters.incoming & ~filters.bot & ~filters.me)
 async def register_dark(client, message):
     if not await is_sudo(message.from_user.id):
         return await message.reply_text(f"<b>{fancy_text('Only Owner and Sudo users can use this command.')}</b>")
@@ -374,7 +374,7 @@ async def register_dark(client, message):
     await users_col.update_one({"uid": data['uid']}, {"$set": data}, upsert=True)
     await message.reply_text(f"<b>{fancy_text('Successfully registered to Dark-Chain database! Extra fields saved.')}</b>")
 
-@app.on_message(filters.command("remove"))
+@app.on_message(filters.command("remove") & filters.incoming & ~filters.bot & ~filters.me)
 async def remove_user(client, message):
     if not await is_sudo(message.from_user.id): return
     if len(message.command) < 2:
@@ -388,9 +388,9 @@ async def remove_user(client, message):
         return await message.reply_text(f"<b>{fancy_text('User not found in database.')}</b>")
     
     await users_col.delete_one({"_id": user["_id"]})
-    await message.reply_text(f"<b>{fancy_text(f'User {user.get("name", query)} successfully removed from database!')}</b>")
+    await message.reply_text(f"<b>{fancy_text(f'User {user.get(\"name\", query)} successfully removed from database!')}</b>")
 
-@app.on_message(filters.command("search"))
+@app.on_message(filters.command("search") & filters.incoming & ~filters.bot & ~filters.me)
 async def search_users(client, message):
     if not await is_sudo(message.from_user.id): return
     if len(message.command) < 2:
@@ -427,7 +427,7 @@ async def search_users(client, message):
             await message.reply_text(profile_msg)
         await asyncio.sleep(0.5)
 
-@app.on_message(filters.command("token") & filters.private)
+@app.on_message(filters.command("token") & filters.private & filters.incoming & ~filters.bot & ~filters.me)
 async def send_token(client, message):
     user = await users_col.find_one({"uid": message.from_user.id})
     if not user:
@@ -453,7 +453,8 @@ async def reset_token_callback(client, callback_query):
     new_text = build_token_message(new_token, new_time)
     await edit_token_with_copy_button(callback_query.message.chat.id, callback_query.message.id, new_text, new_token, user_id)
 
-@app.on_message(filters.regex(r"dark-chain\d{5}-[a-zA-Z]+"))
+# === CRITICAL LOOP FIX: Added filters.incoming & ~filters.bot & ~filters.me ===
+@app.on_message(filters.regex(r"dark-chain\d{5}-[a-zA-Z]+") & filters.incoming & ~filters.bot & ~filters.me)
 async def detect_token(client, message):
     token_match = re.search(r"(dark-chain\d{5}-[a-zA-Z]+)", message.text)
     if not token_match: return
@@ -492,13 +493,13 @@ async def detect_token(client, message):
         else:
             await message.reply_text(profile_msg)
 
-@app.on_message(filters.command("token") & ~filters.private)
+@app.on_message(filters.command("token") & ~filters.private & filters.incoming & ~filters.bot & ~filters.me)
 async def token_in_group(client, message):
     btn = InlineKeyboardMarkup([[InlineKeyboardButton("🤖 ɢᴏ ᴛᴏ ʙᴏᴛ ᴅᴍ", url=f"https://t.me/{BOT_USERNAME}?start=token")]])
     msg = f"<b>{fancy_text('Token command is private for security!')}</b>\n\n{fancy_text('Click button to open DM and use /token')}"
     await message.reply_text(msg, reply_markup=btn)
 
-@app.on_message(filters.command("profile"))
+@app.on_message(filters.command("profile") & filters.incoming & ~filters.bot & ~filters.me)
 async def show_profile(client, message):
     target_id = await get_target_id(message) or message.from_user.id
     user_data = await users_col.find_one({"uid": target_id})
@@ -512,7 +513,7 @@ async def show_profile(client, message):
     else:
         await message.reply_text(profile_msg)
 
-@app.on_message(filters.command("post"))
+@app.on_message(filters.command("post") & filters.incoming & ~filters.bot & ~filters.me)
 async def add_special_post(client, message):
     if message.from_user.id not in OWNER_ID:
         return await message.reply_text(f"<b>{fancy_text('Only Owner can use this.')}</b>")
@@ -522,7 +523,7 @@ async def add_special_post(client, message):
     await posts_col.update_one({"type": "special"}, {"$addToSet": {"posts": post_name}}, upsert=True)
     await message.reply_text(f"<b>{fancy_text(f'Special post {post_name} added!')}</b>")
 
-@app.on_message(filters.command("posts"))
+@app.on_message(filters.command("posts") & filters.incoming & ~filters.bot & ~filters.me)
 async def list_special_posts(client, message):
     if message.from_user.id not in OWNER_ID:
         return await message.reply_text(f"<b>{fancy_text('Only Owner can use this.')}</b>")
@@ -536,7 +537,7 @@ async def list_special_posts(client, message):
     txt += "┗━━━━━━━━━━┛</b>"
     await message.reply_text(txt)
 
-@app.on_message(filters.command("suspend"))
+@app.on_message(filters.command("suspend") & filters.incoming & ~filters.bot & ~filters.me)
 async def suspend_user(client, message):
     if not await is_sudo(message.from_user.id): return
     
@@ -571,7 +572,7 @@ async def suspend_user(client, message):
         
     await message.reply_text(f"<b>{fancy_text(f'User suspended with category {category}')}</b>")
 
-@app.on_message(filters.command("edit"))
+@app.on_message(filters.command("edit") & filters.incoming & ~filters.bot & ~filters.me)
 async def edit_user(client, message):
     if not await is_sudo(message.from_user.id):
         return await message.reply_text(f"<b>{fancy_text('Only Owner and Sudo can edit.')}</b>")
@@ -604,7 +605,7 @@ async def edit_user(client, message):
     else:
         await message.reply_text(f"<b>{fancy_text('No data to edit.')}</b>")
 
-@app.on_message(filters.command("sudo"))
+@app.on_message(filters.command("sudo") & filters.incoming & ~filters.bot & ~filters.me)
 async def manage_sudo(client, message):
     if message.from_user.id in OWNER_ID and len(message.command) > 1:
         target_id = await get_target_id(message)
@@ -631,7 +632,7 @@ async def manage_sudo(client, message):
     txt += "┗━━━━━━━━━━┛</b>"
     await message.reply_text(txt)
 
-@app.on_message(filters.command("rm"))
+@app.on_message(filters.command("rm") & filters.incoming & ~filters.bot & ~filters.me)
 async def remove_sudo(client, message):
     if message.from_user.id not in OWNER_ID:
         return await message.reply_text(f"<b>{fancy_text('Only Owner can remove sudo.')}</b>")
@@ -641,7 +642,7 @@ async def remove_sudo(client, message):
     await sudos_col.delete_one({"uid": target_id})
     await message.reply_text(f"<b>{fancy_text('Sudo removed successfully!')}</b>")
 
-@app.on_message(filters.command("broadcast"))
+@app.on_message(filters.command("broadcast") & filters.incoming & ~filters.bot & ~filters.me)
 async def broadcast(client, message):
     if not await is_sudo(message.from_user.id): return
     
