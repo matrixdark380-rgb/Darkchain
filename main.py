@@ -103,8 +103,7 @@ async def delete_after(msg, delay: int):
 def build_token_message(token: str, rtime: str) -> str:
     return f"<b>┏━━━「 ᴛᴏᴋᴇɴ 」━━┓\n┃🧪 ʏᴏᴜʀ ᴘʀɪᴠᴀᴛᴇ ᴛᴏᴋᴇɴ \n┗──────────╼\n┃ ʀᴇsᴇᴛ ᴛɪᴍᴇ: <code>{rtime}</code>\n┗──────────╼\n┃ 🔗 ᴛᴏᴋᴇɴ \n┃<code>{token}</code>\n┗━━━━━━━━━━━┛</b>"
 
-# === DYNAMIC PROFILE FUNCTION ===
-# ডেটাবেসে যে ডেটা আছে শুধুমাত্র সেটাই শো করবে (কোনো N/A বা ফাঁকা লিংক আসবে না)
+# === DYNAMIC PROFILE FUNCTION (No N/A for missing fields) ===
 def get_profile_text(user_data: dict) -> str:
     name = fancy_text(user_data.get('name', 'Unknown'))
     uid = user_data.get('uid', 'N/A')
@@ -374,6 +373,7 @@ async def register_dark(client, message):
     await users_col.update_one({"uid": data['uid']}, {"$set": data}, upsert=True)
     await message.reply_text(f"<b>{fancy_text('Successfully registered to Dark-Chain database! Extra fields saved.')}</b>")
 
+# === SYNTAX ERROR FIXED HERE (No backslash inside f-string) ===
 @app.on_message(filters.command("remove") & filters.incoming & ~filters.bot & ~filters.me)
 async def remove_user(client, message):
     if not await is_sudo(message.from_user.id): return
@@ -388,7 +388,8 @@ async def remove_user(client, message):
         return await message.reply_text(f"<b>{fancy_text('User not found in database.')}</b>")
     
     await users_col.delete_one({"_id": user["_id"]})
-    await message.reply_text(f"<b>{fancy_text(f'User {user.get(\"name\", query)} successfully removed from database!')}</b>")
+    user_name = user.get("name", query)
+    await message.reply_text(f"<b>{fancy_text(f'User {user_name} successfully removed from database!')}</b>")
 
 @app.on_message(filters.command("search") & filters.incoming & ~filters.bot & ~filters.me)
 async def search_users(client, message):
